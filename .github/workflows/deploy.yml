@@ -81,19 +81,19 @@ jobs:
           ls -la images/ || echo "No images directory"
           
           echo "=== Deploying with Docker Compose ==="
-          docker-compose down
-          docker-compose up -d
+          docker compose down
+          docker compose up -d
           
           echo "=== Waiting for containers to start ==="
           sleep 10
           
           echo "=== Diagnostic information ==="
           echo "1. Container status:"
-          docker-compose ps
+          docker compose ps
           echo ""
           
           echo "2. Container logs:"
-          docker-compose logs --tail=10
+          docker compose logs --tail=10
           echo ""
           
           echo "3. Testing application..."
