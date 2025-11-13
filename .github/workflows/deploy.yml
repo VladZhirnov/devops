@@ -73,15 +73,14 @@ jobs:
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/website-backend:latest
           docker pull nginx:alpine
           
-          echo "=== Checking copied files ==="
-          ls -la
-          echo "Files in assets/:"
-          ls -la assets/ || echo "No assets directory"
-          echo "Files in images/:"
-          ls -la images/ || echo "No images directory"
+          echo "=== Stopping any existing containers ==="
+          docker compose down || true
+          
+          # Принудительно освобождаем порт 8181 если он занят
+          echo "=== Checking port 8181 ==="
+          sudo ss -tulpn | grep 8181 && echo "Port 8181 is in use, killing process..." && sudo fuser -k 8181/tcp || echo "Port 8181 is free"
           
           echo "=== Deploying with Docker Compose ==="
-          docker compose down
           docker compose up -d
           
           echo "=== Waiting for containers to start ==="
