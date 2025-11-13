@@ -1,0 +1,3 @@
+[submodule "static-website-example"]
+	path = static-website-example
+	url = https://github.com/VladZhirnov/static-website-example
