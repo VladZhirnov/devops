@@ -1,0 +1,68 @@
+name: CD Pipeline
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  SSH_HOST: 'course.prafdin.ru'
+  SSH_PORT: '2461'
+  SSH_USERNAME: 'ubuntu'
+  APP_DIR: '/home/ubuntu/devops'
+  ID: 'zhirnov'
+  PROXY: 'course.prafdin.ru'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code with submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Run tests
+      run: |
+        cd devops
+        if [ -f "test.sh" ]; then
+          chmod +x test.sh
+          ./test.sh
+        fi
+        
+    - name: Build application
+      run: |
+        if [ ! -d "static-website-example" ]; then
+          exit 1
+        fi
+    
+    - name: Deploy to VM
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ env.SSH_HOST }}
+        port: ${{ env.SSH_PORT }}
+        username: ${{ env.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd ${{ env.APP_DIR }}
+          git pull origin main
+          git submodule update --init --recursive
+          cd devops
+          if [ -f "test.sh" ]; then
+            chmod +x test.sh
+            ./test.sh
+          fi
+          chmod +x deploy.sh
+          ./deploy.sh     
+    
+    - name: Verify deployment
+      run: |
+        APP_URL="http://app.${{ env.ID }}.${{ env.PROXY }}"
+        echo "Checking application at: $APP_URL"
+        if curl -s -f "$APP_URL" > /dev/null; then
+          echo "✅ Deployment successful!"
+        else
+          echo "❌ Deployment failed!"
+          exit 1
+        fi

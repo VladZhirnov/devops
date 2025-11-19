@@ -1,0 +1,77 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop, github-actions ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code with submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f devops/requirements.txt ]; then
+          pip install -r devops/requirements.txt
+        fi
+        
+    - name: Validate shell scripts
+      run: |
+        echo "Validating shell scripts..."
+        find devops -name "*.sh" -type f | while read script; do
+          echo "Checking $script"
+          bash -n "$script" && echo "✅ $script - syntax OK" || echo "⚠️ $script - syntax error"
+        done
+        
+    - name: Check file permissions
+      run: |
+        echo "Checking executable permissions..."
+        find devops -name "*.sh" -type f | while read script; do
+          if [ ! -x "$script" ]; then
+            echo "⚠️ $script is not executable"
+          else
+            echo "✅ $script is executable"
+          fi
+        done
+        
+    - name: Test deployment scripts
+      run: |
+        echo "Testing deployment scripts..."
+        cd devops
+        [ -f "deploy.sh" ] && echo "✅ deploy.sh exists" || echo "❌ deploy.sh missing"
+        [ -f "install-frp.sh" ] && echo "✅ install-frp.sh exists" || echo "❌ install-frp.sh missing"
+        [ -f "install-nginx.sh" ] && echo "✅ install-nginx.sh exists" || echo "❌ install-nginx.sh missing"
+        [ -f "generate-ssh-keys.sh" ] && echo "✅ generate-ssh-keys.sh exists" || echo "❌ generate-ssh-keys.sh missing"
+        [ -f "test.sh" ] && echo "✅ test.sh exists" || echo "❌ test.sh missing"
+        
+    - name: Initialize and update submodules
+      run: |
+        echo "Initializing submodules..."
+        git submodule update --init --recursive
+        echo "✅ Submodules initialized"
+        
+    - name: Run custom tests
+      run: |
+        echo "Running custom tests..."
+        cd devops
+        if [ -f "test.sh" ]; then
+          echo "✅ test.sh exists, running tests..."
+          chmod +x test.sh
+          ./test.sh
+        else
+          echo "ℹ️ test.sh not found, skipping custom tests"
+        fi

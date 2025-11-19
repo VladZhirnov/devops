@@ -158,7 +158,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
                 print(f"      - Запуск тестов...")
                 result = subprocess.run(
-                    ["./devops/test.sh"],
+                    ["/home/ubuntu/devops/devops/test.sh"],
                     cwd=tmpdir,
                     check=True,
                     capture_output=True,
@@ -169,7 +169,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
                 print(f"      - Запуск деплоя...")
                 subprocess.run(
-                    ["./devops/deploy.sh"],
+                    ["/home/ubuntu/devops/devops/deploy.sh"],
                     cwd=tmpdir,
                     check=True
                 )

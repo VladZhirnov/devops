@@ -1,9 +1,16 @@
 #!/bin/bash
 
-echo "🧪 Запуск автоматических тестов для всех HTML-страниц..."
+echo "🧪 Запуск CI тестов для HTML-страниц..."
 
-BASE_URL="http://localhost:8181"
-WEBSITE_DIR="/home/ubuntu/devops/static-website-example"
+WEBSITE_DIR="../static-website-example"
+
+if [ ! -d "$WEBSITE_DIR" ]; then
+    echo "❌ Директория $WEBSITE_DIR не найдена"
+    echo "Текущая директория: $(pwd)"
+    echo "Содержимое родительской директории:"
+    ls -la ..
+    exit 1
+fi
 
 # Находим все HTML файлы
 HTML_FILES=$(find "$WEBSITE_DIR" -name "*.html" -type f)
@@ -13,29 +20,29 @@ if [ -z "$HTML_FILES" ]; then
     exit 1
 fi
 
-echo "📄 Найдены файлы: $(echo $HTML_FILES | xargs -n1 basename)"
+echo "📄 Найдены файлы:"
+echo "$HTML_FILES"
 
-# Тестируем каждый файл
+# Проверяем каждый файл
 for file in $HTML_FILES; do
     filename=$(basename "$file")
     echo "🔍 Проверка $filename..."
     
-    # Проверка доступности
-    if ! curl -s -I "$BASE_URL/$filename" | grep -q "200 OK"; then
-        echo "❌ $filename: недоступен (не 200 OK)"
+    # Проверка что файл не пустой
+    if [ ! -s "$file" ]; then
+        echo "❌ $filename: файл пустой"
         exit 1
     fi
     
     # Проверка HTML структуры
-    if ! curl -s "$BASE_URL/$filename" | grep -q -E "<!DOCTYPE HTML>|<!doctype html>"; then
+    if ! grep -q -E "<!DOCTYPE HTML>|<!doctype html>" "$file"; then
         echo "❌ $filename: отсутствует DOCTYPE"
         exit 1
     fi
     
-    # Проверка что страница не пустая
-    content_length=$(curl -s "$BASE_URL/$filename" | wc -c)
-    if [ "$content_length" -lt 50 ]; then
-        echo "❌ $filename: страница слишком короткая (возможно пустая)"
+    # Проверка базовой HTML структуры
+    if ! grep -q -E "<html|</html>" "$file"; then
+        echo "❌ $filename: отсутствует HTML структура"
         exit 1
     fi
     
