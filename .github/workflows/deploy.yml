@@ -33,6 +33,14 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     
+    - name: Convert to lowercase
+      id: lowercase
+      run: |
+        OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        echo "owner_lowercase=$OWNER_LOWERCASE" >> $GITHUB_OUTPUT
+        echo "Original: ${{ github.repository_owner }}"
+        echo "Lowercase: $OWNER_LOWERCASE"
+    
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -40,8 +48,8 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: |
-          ghcr.io/${{ github.repository_owner }}/devops:latest
-          ghcr.io/${{ github.repository_owner }}/devops:${{ github.ref_name }}
+          ghcr.io/${{ steps.lowercase.outputs.owner_lowercase }}/devops:latest
+          ghcr.io/${{ steps.lowercase.outputs.owner_lowercase }}/devops:${{ github.ref_name }}
     
     - name: Deploy to VM
       uses: appleboy/ssh-action@v1
@@ -54,11 +62,15 @@ jobs:
           set -e
           echo "=== Starting deployment ==="
           
+          # Convert to lowercase for consistency
+          OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "Using repository owner: $OWNER_LOWERCASE"
+          
           # Login to GitHub Container Registry
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           echo "=== Pulling latest Docker image ==="
-          docker pull ghcr.io/${{ github.repository_owner }}/devops:latest
+          docker pull ghcr.io/$OWNER_LOWERCASE/devops:latest
           
           echo "=== Stopping existing container ==="
           docker stop devops-app 2>/dev/null || echo "Container not running"
@@ -69,7 +81,7 @@ jobs:
             --name devops-app \
             --restart unless-stopped \
             -p 8282:8282 \
-            ghcr.io/${{ github.repository_owner }}/devops:latest
+            ghcr.io/$OWNER_LOWERCASE/devops:latest
           
           echo "=== Waiting for container to start ==="
           sleep 5
@@ -84,7 +96,13 @@ jobs:
           echo ""
           
           echo "3. Testing application..."
-          curl -f http://localhost:8282/ && echo "✅ Application is working!" || echo "❌ Application failed"
+          if curl -f http://localhost:8282/; then
+            echo "✅ Application is working!"
+          else
+            echo "❌ Application failed"
+            docker logs devops-app
+            exit 1
+          fi
           
           echo "=== Cleaning up ==="
           docker image prune -f
