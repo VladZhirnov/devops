@@ -67,7 +67,7 @@ jobs:
           docker run -d \
             --name devops-app \
             --restart unless-stopped \
-            -p 8080:8282 \
+            -p 8282:8282 \
             ${{ secrets.DOCKERHUB_USERNAME }}/devops:latest
           
           echo "=== Waiting for container to start ==="
