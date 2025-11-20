@@ -96,14 +96,6 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Convert to lowercase
-      id: lowercase
-      run: |
-        OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-        echo "owner_lowercase=$OWNER_LOWERCASE" >> $GITHUB_OUTPUT
-        echo "Original: ${{ github.repository_owner }}"
-        echo "Lowercase: $OWNER_LOWERCASE"
         
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -111,14 +103,14 @@ jobs:
         context: .
         push: true
         tags: |
-          ghcr.io/${{ steps.lowercase.outputs.owner_lowercase }}/devops:docker-lab3
-          ghcr.io/${{ steps.lowercase.outputs.owner_lowercase }}/devops:latest
+          ghcr.io/${{ github.actor }}/devops:docker-lab3
+          ghcr.io/${{ github.actor }}/devops:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
     - name: Verify pushed image
       run: |
         echo "Docker image successfully built and pushed to GitHub Container Registry"
-        echo "Image: ghcr.io/${{ steps.lowercase.outputs.owner_lowercase }}/devops:docker-lab3"
-        echo "Image: ghcr.io/${{ steps.lowercase.outputs.owner_lowercase }}/devops:latest"
-        echo "View at: https://github.com/${{ github.repository_owner }}?tab=packages"
+        echo "Image: ghcr.io/${{ github.actor }}/devops:docker-lab3"
+        echo "Image: ghcr.io/${{ github.actor }}/devops:latest"
+        echo "View at: https://github.com/users/${{ github.actor }}/packages"
