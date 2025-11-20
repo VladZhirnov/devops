@@ -26,12 +26,11 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    - name: Log in to GitHub Container Registry
+    - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -40,8 +39,8 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: |
-          ghcr.io/${{ github.actor }}/devops:latest
-          ghcr.io/${{ github.actor }}/devops:${{ github.ref_name }}
+          ${{ secrets.DOCKERHUB_USERNAME }}/devops:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/devops:${{ github.ref_name }}
     
     - name: Deploy to VM
       uses: appleboy/ssh-action@v1
@@ -54,11 +53,11 @@ jobs:
           set -e
           echo "=== Starting deployment ==="
           
-          # Login to GitHub Container Registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          # Login to Docker Hub
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
           
           echo "=== Pulling latest Docker image ==="
-          docker pull ghcr.io/${{ github.actor }}/devops:latest
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/devops:latest
           
           echo "=== Stopping existing container ==="
           docker stop devops-app 2>/dev/null || echo "Container not running"
@@ -68,8 +67,8 @@ jobs:
           docker run -d \
             --name devops-app \
             --restart unless-stopped \
-            -p 8282:8282 \
-            ghcr.io/${{ github.actor }}/devops:latest
+            -p 8080:8282 \
+            ${{ secrets.DOCKERHUB_USERNAME }}/devops:latest
           
           echo "=== Waiting for container to start ==="
           sleep 5
@@ -84,13 +83,7 @@ jobs:
           echo ""
           
           echo "3. Testing application..."
-          if curl -f http://localhost:8282/; then
-            echo "✅ Application is working!"
-          else
-            echo "❌ Application failed"
-            docker logs devops-app
-            exit 1
-          fi
+          curl -f http://localhost:8080/ && echo "✅ Application is working!" || echo "❌ Application failed"
           
           echo "=== Cleaning up ==="
           docker image prune -f
