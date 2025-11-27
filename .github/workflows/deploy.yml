@@ -10,8 +10,8 @@ on:
 
 env:
   SSH_HOST: 'course.prafdin.ru'
-  SSH_PORT: '2457'
-  SSH_USERNAME: 'uwu'
+  SSH_PORT: '2461'
+  SSH_USERNAME: 'ubuntu'
 
 jobs:
   deploy:
