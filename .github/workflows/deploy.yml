@@ -1,4 +1,4 @@
-name: CD Pipeline
+name: CD Pipeline with Docker Compose
 
 on:
   push:
@@ -32,17 +32,28 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-    - name: Build and push Docker image
+    - name: Build and push Backend image
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
         push: true
         tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/devops:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/devops:${{ github.ref_name }}
+          ${{ secrets.DOCKERHUB_USERNAME }}/website-backend:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/website-backend:${{ github.ref_name }}
     
-    - name: Deploy to VM
+    - name: Copy all files to server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ env.SSH_HOST }}
+        port: ${{ env.SSH_PORT }}
+        username: ${{ env.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        source: "."
+        target: "/home/${{ env.SSH_USERNAME }}/website-example"
+        strip_components: 1
+    
+    - name: Deploy to VM with Docker Compose
       uses: appleboy/ssh-action@v1
       with:
         host: ${{ env.SSH_HOST }}
@@ -51,42 +62,50 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           set -e
-          echo "=== Starting deployment ==="
+          echo "=== Starting Docker Compose deployment ==="
+          
+          cd /home/${{ env.SSH_USERNAME }}/website-example
           
           # Login to Docker Hub
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
           
-          echo "=== Pulling latest Docker image ==="
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/devops:latest
+          echo "=== Pulling latest Docker images ==="
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/website-backend:latest
+          docker pull nginx:alpine
           
-          echo "=== Stopping existing container ==="
-          docker stop devops-app 2>/dev/null || echo "Container not running"
-          docker rm devops-app 2>/dev/null || echo "Container does not exist"
+          echo "=== Stopping any existing containers ==="
+          docker compose down || true
           
-          echo "=== Starting new container ==="
-          docker run -d \
-            --name devops-app \
-            --restart unless-stopped \
-            -p 8282:8282 \
-            ${{ secrets.DOCKERHUB_USERNAME }}/devops:latest
+          # Принудительно освобождаем порт 8181 если он занят
+          echo "=== Checking port 8181 ==="
+          sudo ss -tulpn | grep 8181 && echo "Port 8181 is in use, killing process..." && sudo fuser -k 8181/tcp || echo "Port 8181 is free"
           
-          echo "=== Waiting for container to start ==="
-          sleep 5
+          echo "=== Deploying with Docker Compose ==="
+          docker compose up -d
+          
+          echo "=== Waiting for containers to start ==="
+          sleep 10
           
           echo "=== Diagnostic information ==="
           echo "1. Container status:"
-          docker ps
+          docker compose ps
           echo ""
           
           echo "2. Container logs:"
-          docker logs devops-app
+          docker compose logs --tail=10
           echo ""
           
           echo "3. Testing application..."
-          curl -f http://localhost:8080/ && echo "✅ Application is working!" || echo "❌ Application failed"
+          echo "Testing static files:"
+          curl -f http://localhost:8181/ && echo "✅ Static files working!" || echo "❌ Static files failed"
+          echo ""
+          
+          echo "Testing API:"
+          curl -f http://localhost:8181/api/posts && echo "✅ API working!" || echo "❌ API failed"
+          echo ""
           
           echo "=== Cleaning up ==="
           docker image prune -f
           
-          echo "=== Deployment completed ==="
-          echo "App should be available at: http://app.zhirnov.course.prafdin.ru/"
+          echo "=== Docker Compose deployment completed ==="
+          echo "App should be available at: http://${{ env.SSH_HOST }}:8181/"

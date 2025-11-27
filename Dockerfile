@@ -1,11 +1,11 @@
-FROM nginx:alpine
+FROM python:3.9-slim
 
-WORKDIR /usr/share/nginx/html
+WORKDIR /app
 
-COPY static-website-example/ .
+COPY requirements.txt .
 
-COPY devops/nginx-docker.conf /etc/nginx/conf.d/default.conf
+RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 8282
+COPY backend.py .
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["python", "-u", "backend.py"]
